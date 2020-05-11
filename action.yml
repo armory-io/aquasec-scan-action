@@ -1,0 +1,30 @@
+# action.yml
+name: 'Armory Aquasec Scan'
+description: 'Scan a Dockerimage using Aquasec'
+inputs:
+  username:
+    description: Aquasec Username
+    required: true
+  password:
+    description: Aquasec Password
+    required: true
+  url:
+    description: Aquasec URL
+    required: true
+  image:
+    description: Image to be scanned
+    required: true
+  registry:
+    description: Registry of Image
+    required: true
+outputs:
+  time: # id of output
+    description: 'The time we greeted you'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.username }}
+    - ${{ inputs.password }}
+    - ${{ inputs.url }}
+    - ${{ inputs.image }}
