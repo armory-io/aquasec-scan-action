@@ -18,7 +18,7 @@ bash -c "${BASE_COMMAND}/scan -X POST"
 ## Get the status and wait for it to finish.
 echo "Checking status of the scan"
 STATUS=`bash -c "${BASE_COMMAND}/status"|jq '.status'`
-while [[ ${STATUS} != "Scanned" ]] || [[ ${STATUS} != "Fail" ]]; do
+while [[ ${STATUS} != "Scanned" ]] || [[ ${STATUS} != "Failed" ]]; do
   STATUS=`bash -c "${BASE_COMMAND}/status"|jq '.status'`
   echo "Got status of $STATUS ... Build hasn't finished scanning... waiting for Scanned or Fail will sleep 30 seconds"
   sleep 30
@@ -26,7 +26,7 @@ done
 
 bash -C "${BASE_COMMAND}/scan_result"|jq
 # Fail the build
-if [[ ${STATUS} == "Fail" ]];  then
+if [[ ${STATUS} == "Failed" ]];  then
     echo "** FAILING THE BUILD Security scan has FAILED **"
     exit 500
 fi
