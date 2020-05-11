@@ -24,8 +24,13 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
   args:
+    - -username
     - ${{ inputs.username }}
+    - -password
     - ${{ inputs.password }}
+    - -url
     - ${{ inputs.url }}
+    - -registry
     - ${{ inputs.registry }}
+    - -image
     - ${{ inputs.image }}
