@@ -1,5 +1,5 @@
 # action.yml
-name: 'Armory Aquasec Scan'
+name: 'Armory Aquasec Image Scan'
 description: 'Scan a Dockerimage using Aquasec'
 inputs:
   username:
@@ -27,4 +27,5 @@ runs:
     - ${{ inputs.username }}
     - ${{ inputs.password }}
     - ${{ inputs.url }}
+    - ${{ inputs.registry }}
     - ${{ inputs.image }}
