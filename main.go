@@ -108,7 +108,7 @@ func (a *AquasecScanner) WaitForScan(registry, image string) error {
 		if err != nil {
 			return err
 		}
-		if status == "Scanned" || status == "Fail" {
+		if status == "Scanned" || status == "Failed" {
 			return nil
 		}
 		log.Printf("scan status is %s. continuing to wait for scan to complete.", status)
