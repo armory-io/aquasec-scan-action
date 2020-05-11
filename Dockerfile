@@ -7,5 +7,5 @@ RUN CGO_ENABLED=0 go build -o /bin/action
 FROM alpine:3.11
 
 COPY --from=builder /bin/action /aquasec-scan-action
-
+:A
 ENTRYPOINT ["/entrypoint.sh"]
