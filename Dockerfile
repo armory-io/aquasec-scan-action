@@ -1,7 +1,11 @@
+FROM golang:1.14.2 AS builder
+
+WORKDIR /go/src/github.com/armory-io/aquasec-scan-action/
+COPY . .
+RUN CGO_ENABLED=0 go build
+
 FROM alpine:3.11
 
-RUN apk add -U jq curl bash
+COPY --from=builder /go/src/github.com/armory-io/aquasec-scan-action/aquasec-scan-action .
 
-COPY entrypoint.sh /entrypoint.sh
-
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["./aquasec-scan-action"]
