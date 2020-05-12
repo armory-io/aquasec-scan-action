@@ -150,6 +150,23 @@ func (a *AquasecScanner) GetScanResult(registry, image string) (*ScanResult, str
 	return &output, string(b), nil
 }
 
+type AquasecAPIError struct {
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+}
+
+func (a AquasecAPIError) Error() string {
+	return fmt.Sprintf("aquasec error (%b): %s", a.Code, a.Message)
+}
+
+func deserializeError(reader io.Reader) error {
+	var aerr AquasecAPIError
+	if err := json.NewDecoder(reader).Decode(&aerr); err != nil {
+		return err
+	}
+	return aerr
+}
+
 func (a *AquasecScanner) authenticatedRequest(method, url string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
@@ -157,7 +174,15 @@ func (a *AquasecScanner) authenticatedRequest(method, url string, body io.Reader
 	}
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", a.authToken))
 	client := &http.Client{}
-	return client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 && resp.StatusCode <= 599 {
+		defer resp.Body.Close()
+		return nil, deserializeError(resp.Body)
+	}
+	return resp, err
 }
 
 type AuthResponse struct {
@@ -180,6 +205,11 @@ func NewAquasecScanner(baseUrl, username, password string) (Aquasec, error) {
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return nil, deserializeError(resp.Body)
+	}
+
 	var output AuthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
 		return nil, err
