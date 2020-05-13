@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -20,6 +21,7 @@ func main() {
 	url := flag.String("url", "", "aquasec url")
 	registry := flag.String("registry", "", "image registry")
 	image := flag.String("image", "", "image to scan")
+	output := flag.String("out", "", "scan result output path")
 	flag.Parse()
 
 	log.Printf("attempting to log into aquasec \n")
@@ -45,20 +47,39 @@ func main() {
 		log.Fatalf("failed to get scan result: %v", err)
 	}
 
-	if !status.Disallowed {
-		log.Println("image successfully scanned and clear of issues.")
-		return
-	}
-
-	log.Println("image failed security scan.")
 	var out map[string]interface{}
 	if err := json.Unmarshal([]byte(resp), &out); err != nil {
 		log.Fatalf("unable to unmarshal scan status: %v", err)
 	}
 	indented, _ := json.MarshalIndent(out, "", "  ")
-	fmt.Println(string(indented))
+
+	// write a copy of the scan json to be archived
+	if *output != "" {
+		log.Printf("outputting scan results to %s", *output)
+		if err := writeArtifact(*output, indented); err != nil {
+			log.Printf("failed to save copy of scan results to %s: %s", *output, err.Error())
+		}
+	} else {
+		log.Println("printing scan results to logs")
+		fmt.Println(string(indented))
+	}
+
+	if !status.Disallowed {
+		log.Println("image successfully scanned and clear of issues.")
+		return
+	}
+
+	log.Printf("image failed security scan. reason - %s", status.DisallowReason)
 	os.Exit(500)
 
+}
+
+func writeArtifact(fp string, content []byte) error {
+	basePath := filepath.Dir(fp)
+	if err := os.MkdirAll(basePath, 0755); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(fp, content, 0755)
 }
 
 type Aquasec interface {
@@ -74,8 +95,10 @@ type AquasecScanner struct {
 }
 
 type ScanResult struct {
-	Disallowed bool `json:"disallowed"`
-	Inputs     json.RawMessage
+	Disallowed          bool   `json:"disallowed"`
+	DisallowReason      string `json:"disallow_reason"`
+	DisallowDescription string `json:"disallow_description"`
+	Inputs              json.RawMessage
 }
 
 type ScanStartOutput struct {
