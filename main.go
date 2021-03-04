@@ -18,6 +18,7 @@ import (
 
 	"golang.org/x/oauth2"
 
+	actions "github.com/armory-io/aquasec-scan-action/internal/github"
 	"github.com/google/go-github/v32/github"
 )
 
@@ -28,6 +29,15 @@ func main() {
 	registry := flag.String("registry", "", "image registry")
 	image := flag.String("image", "", "image to scan")
 	flag.Parse()
+
+	ctx, err := actions.GetActionContext()
+	if err != nil {
+		if err == actions.ErrNoPayload {
+			log.Println("action event payload could not be found. using defaults.")
+		} else {
+			log.Fatalf("failed to initialize action: %s", err.Error())
+		}
+	}
 
 	log.Printf("attempting to log into aquasec \n")
 	scanner, err := NewAquasecScanner(*url, *username, *password)
@@ -71,13 +81,13 @@ func main() {
 			log.Fatalf("failed to generate comment body: %s", err.Error())
 		}
 
-		repo := strings.Split(os.Getenv("GITHUB_REPOSITORY"), "/")
-		sha := os.Getenv("GITHUB_SHA")
-		if sha == "" || os.Getenv("GITHUB_REPOSITORY") == "" {
+		sha := determineSHA(ctx)
+		if sha == "" || ctx.FullRepo == "" {
 			log.Println("github repository and sha are required for reporting CVE counts but are empty. skipping.")
-		}
-		if err := createCommitComment(commentBody, repo[0], repo[1], sha); err != nil {
-			log.Fatalf("failed to create report comment: %s", err.Error())
+		} else {
+			if err := createCommitComment(commentBody, ctx.Owner, ctx.Repo, sha); err != nil {
+				log.Fatalf("failed to create report comment: %s", err.Error())
+			}
 		}
 	}
 
@@ -97,6 +107,15 @@ func main() {
 
 }
 
+func determineSHA(ctx *actions.ActionContext) string {
+	if ctx.EventName != "pull_request" {
+		return ctx.SHA
+	}
+
+	event, _ := actions.PullRequestEvent(ctx)
+	return event.PullRequest.Head.GetSHA()
+}
+
 var noIssuesFoundTemplate = `Security Scan Results
 Image {{ .Image }} is free of critical & high CVEs.`
 
@@ -114,9 +133,17 @@ func createCommitComment(body []byte, owner, repo, sha string) error {
 		Body: github.String(string(body)),
 	}
 
-	if _, _, err := client.Repositories.CreateComment(context.Background(), owner, repo, sha, input); err != nil {
+	log.Printf("leaving commit comment on commit %s for repo %s/%s\n", sha, owner, repo)
+	comment, resp, err := client.Repositories.CreateComment(context.Background(), owner, repo, sha, input)
+	if err != nil {
 		return err
 	}
+
+	if resp.StatusCode != 201 {
+		return fmt.Errorf("comment was unable to be created. repsonse code %d", resp.StatusCode)
+	}
+
+	log.Printf("commit comment url: %s", comment.GetHTMLURL())
 	return nil
 }
 
@@ -151,7 +178,7 @@ func generateReportComment(registry, image, baseUrl string, sd *ScanData) ([]byt
 	var b bytes.Buffer
 	splitImage := strings.SplitN(image, ":", 2)
 	encodedImage := strings.Replace(image, "/", "%2F", -1)
-	imageUrl := fmt.Sprintf("%s/#/images/%s/%s", baseUrl, registry, encodedImage)
+	imageUrl := fmt.Sprintf("%s/#/images/%s/%s/vulns", baseUrl, registry, encodedImage)
 	type templateInput struct {
 		Registry            string
 		Image               string
