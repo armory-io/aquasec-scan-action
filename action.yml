@@ -17,6 +17,9 @@ inputs:
   registry:
     description: Registry of Image
     required: true
+  useCloudAuth:
+    description: Uses auth against api.cloudsploit.com for cloud aquasec auth.  For users of cloud.aquasec.com.  ONLY used when set to true
+    required: false
 outputs:
   time: # id of output
     description: 'The time we greeted you'
@@ -34,3 +37,5 @@ runs:
     - ${{ inputs.registry }}
     - -image
     - ${{ inputs.image }}
+    - -useCloudAuth
+    - ${{ inputs.useCloudAuth }}
