@@ -28,6 +28,7 @@ func main() {
 	url := flag.String("url", "", "aquasec url")
 	registry := flag.String("registry", "", "image registry")
 	image := flag.String("image", "", "image to scan")
+	useCloudAuth := flag.String("useCloudAuth", "", "Uses auth against api.cloudsploit.com for cloud aquasec auth")
 	flag.Parse()
 
 	ctx, err := actions.GetActionContext()
@@ -38,9 +39,14 @@ func main() {
 			log.Fatalf("failed to initialize action: %s", err.Error())
 		}
 	}
-
-	log.Printf("attempting to log into aquasec \n")
-	scanner, err := NewAquasecScanner(*url, *username, *password)
+	var scanner Aquasec
+	if *useCloudAuth == "true" {
+		log.Printf("attempting to log into aquasec using cloud auth\n")
+		scanner, err = NewCloudScanner(*url, *username, *password)
+	} else {
+		log.Printf("attempting to log into aquasec using aquasec auth \n")
+		scanner, err = NewAquasecScanner(*url, *username, *password)
+	}
 	if err != nil {
 		log.Fatalf("failed to create a new aquasec scanner: %v+", err)
 	}
@@ -358,6 +364,9 @@ func (a *AquasecScanner) authenticatedRequest(method, url string, body io.Reader
 type AuthResponse struct {
 	Token string `json:"token"`
 }
+type CloudAuthResponse struct {
+	Data AuthResponse `json:"data"`
+}
 
 func NewAquasecScanner(baseUrl, username, password string) (Aquasec, error) {
 	a := AquasecScanner{baseUrl: baseUrl}
@@ -385,5 +394,32 @@ func NewAquasecScanner(baseUrl, username, password string) (Aquasec, error) {
 		return nil, err
 	}
 	a.authToken = output.Token
+	return &a, nil
+}
+func NewCloudScanner(baseUrl, username, password string) (Aquasec, error) {
+	a := AquasecScanner{baseUrl: baseUrl}
+	tokenInput := map[string]string{
+		"email":    username,
+		"password": password,
+	}
+	b, err := json.Marshal(tokenInput)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.Post("https://api.cloudsploit.com/v2/signin", "application/json", bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 401 {
+		return nil, deserializeError(resp.Body)
+	}
+
+	var output CloudAuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&output); err != nil {
+		return nil, err
+	}
+	a.authToken = output.Data.Token
 	return &a, nil
 }

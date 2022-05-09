@@ -20,6 +20,8 @@ with:
     image: package/repo
     ## The registry as configured in your aquasec CSP
     registry: Artifactory
+    ## Use aquasec cloud - base url then would be something.cloud.aquasec.com normally, and auth is against the cloudpsploit endpoint
+    useCloudAuth: true
 ```
 
 ### Customize Github PR comment message
@@ -30,11 +32,13 @@ with:
     username: ${{ secrets.AQUA_USER }}
     password: ${{ secrets.AQUA_PASSWORD }}
     ## URL for aquasec CSP
-    url: https://aquasec.example.com
+    url: https://12345.cloud.aquasec.com
     ## The image name, aka armory/debugging-tools
     image: package/repo
     ## The registry as configured in your aquasec CSP
     registry: Artifactory
+  ## Use aquasec cloud - base url then would be something.cloud.aquasec.com normally, and auth is against the cloudpsploit endpoint
+    useCloudAuth: true
     commentTemplate: |
       :skull: Security Scan Results :skull:
       Found {{ .Scan.CriticalVulns }} Critical Vulnerabilities
